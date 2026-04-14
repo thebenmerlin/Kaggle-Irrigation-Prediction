@@ -10,9 +10,9 @@ from collections import Counter
 
 # Paths to submissions
 data_paths = {
-    'sub_098200': '/kaggle/input/submission-098200/submission.csv',
-    'sub_098150': '/kaggle/input/submission-098150/submission.csv',
-    'sub_098114': '/kaggle/input/submission-098114/submission.csv',
+    'sub_098200': '/kaggle/input/datasets/gajananbarve/submission-098200/submission.csv',
+    'sub_098150': '/kaggle/input/datasets/gajananbarve/submission-098150/submission.csv',
+    'sub_098114': '/kaggle/input/datasets/gajananbarve/submission-098114/submission.csv',
 }
 
 # Load submissions
@@ -29,7 +29,7 @@ def load_submissions(paths):
 # Weighted voting with higher scores having more influence
 def weighted_vote(submissions, weights=None):
     if not weights:
-        weights = {'sub_098200': 0.7, 'sub_098150': 0.2, 'sub_098114': 0.1}
+        weights = {'sub_098200': 0.9, 'sub_098150': 0.07, 'sub_098114': 0.03}
     
     dfs = list(submissions.values())
     final_preds = []
@@ -46,7 +46,7 @@ def weighted_vote(submissions, weights=None):
     return final_preds
 
 # Conditional transfer: Use highest-scoring model for uncertain cases
-def conditional_transfer(submissions, final_preds, threshold=0.4):
+def conditional_transfer(submissions, final_preds, threshold=0.3):
     # Identify uncertain predictions (e.g., where models disagree)
     uncertain_idx = []
     for idx in range(len(final_preds)):
@@ -58,6 +58,16 @@ def conditional_transfer(submissions, final_preds, threshold=0.4):
     highest_score_sub = max(submissions.keys(), key=lambda x: float(x.split('_')[1]))
     for idx in uncertain_idx:
         final_preds[idx] = submissions[highest_score_sub].loc[idx, 'Irrigation_Need']
+    
+    return final_preds
+
+# Fallback mechanism: Default to highest-scoring model if all disagree
+def fallback_to_highest(submissions, final_preds):
+    highest_score_sub = max(submissions.keys(), key=lambda x: float(x.split('_')[1]))
+    for idx in range(len(final_preds)):
+        preds = [df.loc[idx, 'Irrigation_Need'] for df in submissions.values()]
+        if len(set(preds)) == len(submissions):  # All models disagree
+            final_preds[idx] = submissions[highest_score_sub].loc[idx, 'Irrigation_Need']
     
     return final_preds
 
@@ -77,6 +87,9 @@ if __name__ == '__main__':
     
     # Apply conditional transfer
     final_preds = conditional_transfer(submissions, final_preds)
+    
+    # Apply fallback mechanism
+    final_preds = fallback_to_highest(submissions, final_preds)
     
     # Generate submission
     generate_submission(final_preds)
